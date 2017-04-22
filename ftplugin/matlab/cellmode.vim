@@ -1,18 +1,18 @@
-" Implementation of a MATLAB-like cellmode for python scripts where cells
-" are delimited by #%%
+" Implementation of a MATLAB-like cellmode for matlab scripts where cells
+" are delimited by %%
 "
 " You can define the following globals or buffer config variables
-  let g:cellmode_tmux_sessionname='IPython'
-  let g:cellmode_tmux_windowname='IPython'
+  let g:cellmode_tmux_sessionname='Matlab'
+  let g:cellmode_tmux_windowname='Matlab'
   let g:cellmode_tmux_panenumber='0'
-"  let g:cellmode_screen_sessionname='ipython'
+"  let g:cellmode_screen_sessionname='matlab'
 "  let g:cellmode_screen_window='0'
 "  let g:cellmode_use_tmux=1
 
-function! PythonUnindent(code)
+function! MatlabUnindent(code)
   " The code is unindented so the first selected line has 0 indentation
   " So you can select a statement from inside a function and it will run
-  " without python complaining about indentation.
+  " without matlab complaining about indentation.
   let l:lines = split(a:code, "\n")
   if len(l:lines) == 0 " Special case for empty string
     return a:code
@@ -52,7 +52,7 @@ function! GetNextTempFile()
   "
   " We use temporary files to communicate with tmux. That is we :
   " - write the content of a register to a tmpfile
-  " - have ipython running inside tmux load and run the tmpfile
+  " - have matlab running inside tmux load and run the tmpfile
   " If we use only one temporary file, quick execution of multiple cells will
   " result in the tmpfile being overrident. So we use multiple tmpfile that
   " act as a rolling buffer (the size of which is configured by
@@ -61,7 +61,7 @@ function! GetNextTempFile()
     au BufDelete <buffer> call CleanupTempFiles()
     let b:cellmode_fnames = []
     for i in range(1, b:cellmode_n_files)
-      call add(b:cellmode_fnames, tempname() . ".ipy")
+      call add(b:cellmode_fnames, "/tmp/tmp.m")
     endfor
     let b:cellmode_fnames_index = 0
   end
@@ -86,7 +86,7 @@ function! DefaultVars()
   " - b:cellmode_tmux_sessionname, b:cellmode_tmux_windowname,
   "   b:cellmode_tmux_panenumber :
   "   buffer-specific target (defaults to g:)
-  let b:cellmode_n_files = GetVar('cellmode_n_files', 10)
+  let b:cellmode_n_files = GetVar('cellmode_n_files', 1)
 
   if !exists("b:cellmode_use_tmux")
     let b:cellmode_use_tmux = GetVar('cellmode_use_tmux', 1)
@@ -104,7 +104,7 @@ function! DefaultVars()
 
   if !exists("g:cellmode_screen_sessionname") ||
    \ !exists("b:cellmode_screen_window")
-    let b:cellmode_screen_sessionname = GetVar('cellmode_screen_sessionname', 'ipython')
+    let b:cellmode_screen_sessionname = GetVar('cellmode_screen_sessionname', 'matlab')
     let b:cellmode_screen_window = GetVar('cellmode_screen_window', '0')
   end
 endfunction
@@ -129,8 +129,8 @@ function! CopyToTmux(code)
   let l:cellmode_fname = GetNextTempFile()
   call writefile(l:lines, l:cellmode_fname)
 
-  " tmux requires the sessionname to start with $ (for example $ipython to
-  " target the session named 'ipython'). Except in the case where we
+  " tmux requires the sessionname to start with $ (for example $matlab to
+  " target the session named 'matlab'). Except in the case where we
   " want to target the current tmux session (with vim running in tmux)
   if strlen(b:cellmode_tmux_sessionname) == 0
     let l:sprefix = ''
@@ -141,18 +141,16 @@ function! CopyToTmux(code)
              \ . b:cellmode_tmux_windowname . '.'
              \ . b:cellmode_tmux_panenumber
 
-  " Ipython has some trouble if we paste large buffer if it has been started
+  " Matlab has some trouble if we paste large buffer if it has been started
   " in a small console. We use %load to work around that
   "call CallSystem('tmux load-buffer ' . l:cellmode_fname)
   "call CallSystem('tmux paste-buffer -t ' . target)
-  call CallSystem("tmux set-buffer \"%load -y " . l:cellmode_fname . "\n\"")
-  call CallSystem('tmux paste-buffer -t "' . target . '"')
-  " In ipython5, the cursor starts at the top of the lines, so we have to move
-  " to the bottom
-  let downlist = repeat('Down ', len(l:lines) + 1)
-  call CallSystem('tmux send-keys -t "' . target . '" ' . downlist)
-  " Simulate double enter to run loaded code
-  call CallSystem('tmux send-keys -t "' . target . '" Enter Enter')
+  for i in range(1,len(l:lines))
+      call CallSystem("tmux set-buffer \"" . l:lines[i-1] . ";;\"")
+      call CallSystem('tmux paste-buffer -t "' . target . '"')
+      " Simulate double enter to run loaded code
+      call CallSystem('tmux send-keys -t "' . target . '" Enter')
+  endfor
 endfunction
 
 function! CopyToScreen(code)
@@ -176,9 +174,9 @@ function! CopyToScreen(code)
               \ . " -X stuff '%paste'")
 endfunction
 
-function! RunTmuxPythonReg()
+function! RunTmuxMatlabReg()
   " Paste into tmux the content of the register @a
-  let l:code = PythonUnindent(@a)
+  let l:code = MatlabUnindent(@a)
   if b:cellmode_use_tmux
     call CopyToTmux(l:code)
   else
@@ -186,22 +184,22 @@ function! RunTmuxPythonReg()
   end
 endfunction
 
-function! RunTmuxPythonCell(restore_cursor)
+function! RunTmuxMatlabCell(restore_cursor)
   " This is to emulate MATLAB's cell mode
-  " Cells are delimited by #%%. Note that there should be a #%% at the end of the
+  " Cells are delimited by %%. Note that there should be a %% at the end of the
   " file
-  " The :?#%%?;/#%%/ part creates a range with the following
-  " ?#%%? search backwards for #%%
+  " The :?%%?;/%%/ part creates a range with the following
+  " ?%%? search backwards for %%
 
-  " Then ';' starts the range from the result of the previous search (#%%)
-  " /#%%/ End the range at the next #%%
+  " Then ';' starts the range from the result of the previous search (%%)
+  " /%%/ End the range at the next %%
   " See the doce on 'ex ranges' here :
   " http://tnerual.eriogerg.free.fr/vimqrc.html
   call DefaultVars()
   if a:restore_cursor
     let l:winview = winsaveview()
   end
-  silent :?#%%?;/#%%/y a
+  silent :?%%?;/%%/y a
 
   " Now, we want to position ourselves inside the next block to allow block
   " execution chaining (of course if restore_cursor is true, this is a no-op
@@ -210,19 +208,19 @@ function! RunTmuxPythonCell(restore_cursor)
   " Move one line down
   execute "normal! j"
 
-  " The above will have the leading and ending #%% in the register, but we
+  " The above will have the leading and ending %% in the register, but we
   " have to remove them (especially leading one) to get a correct indentation
   " estimate. So just select the correct subrange of lines [1:-2]
   let @a=join(split(@a, "\n")[1:-2], "\n")
-  call RunTmuxPythonReg()
+  call RunTmuxMatlabReg()
   if a:restore_cursor
     call winrestview(l:winview)
   end
 endfunction
 
-function! RunTmuxPythonAllCellsAbove()
+function! RunTmuxMatlabAllCellsAbove()
   " Executes all the cells above the current line. That is, everything from
-  " the beginning of the file to the closest #%% above the current line
+  " the beginning of the file to the closest %% above the current line
   call DefaultVars()
 
   " Ask the user for confirmation, this could lead to huge execution
@@ -232,28 +230,28 @@ function! RunTmuxPythonAllCellsAbove()
 
   let l:cursor_pos = getpos(".")
 
-  " Creates a range from the first line to the closest #%% above the current
-  " line (?#%%? searches backward for #%%)
-  silent :1,?#%%?y a
+  " Creates a range from the first line to the closest %% above the current
+  " line (?%%? searches backward for %%)
+  silent :1,?%%?y a
 
   let @a=join(split(@a, "\n")[:-2], "\n")
-  call RunTmuxPythonReg()
+  call RunTmuxMatlabReg()
   call setpos(".", l:cursor_pos)
 endfunction
 
-function! RunTmuxPythonAllCells() " modified by Zichao Long. zlong@pku.edu.cn
+function! RunTmuxMatlabAllCells() " modified by Zichao Long. zlong@pku.edu.cn
   " Executes all the cells in this file.
   let l:winview = winsaveview()
   execute "normal! G"
-  call RunTmuxPythonAllCellsAbove()
+  call RunTmuxMatlabAllCellsAbove()
   call winrestview(l:winview)
 endfunction
 
-function! RunTmuxPythonChunk() range
+function! RunTmuxMatlabChunk() range
   call DefaultVars()
   " Yank current selection to register a
   silent normal gv"ay
-  call RunTmuxPythonReg()
+  call RunTmuxMatlabReg()
 endfunction
 
 " Returns:
@@ -269,11 +267,11 @@ endfunction
 call InitVariable("g:cellmode_default_mappings", 1)
 
 if g:cellmode_default_mappings
-    vnoremap <buffer> <silent> <Leader>l :call RunTmuxPythonChunk()<CR>
-    nnoremap <buffer> <silent> <Leader>l V:call RunTmuxPythonChunk()<CR>
-    nnoremap <buffer> <silent> <Leader>n V:call RunTmuxPythonChunk()<CR>j
-    noremap <buffer> <silent> <F5> :call RunTmuxPythonAllCells()<CR>
-    "noremap <buffer> <silent> <NL> :call RunTmuxPythonCell(1)<CR>
-    noremap <buffer> <silent> <Leader><CR> :call RunTmuxPythonCell(1)<CR>
-    noremap <buffer> <silent> <F10> :call RunTmuxPythonCell(0)<CR>
+    vnoremap <buffer> <silent> <Leader>l :call RunTmuxMatlabChunk()<CR>
+    nnoremap <buffer> <silent> <Leader>l V:call RunTmuxMatlabChunk()<CR>
+    nnoremap <buffer> <silent> <Leader>n V:call RunTmuxMatlabChunk()<CR>j
+    noremap <buffer> <silent> <F5> :call RunTmuxMatlabAllCells()<CR>
+    "noremap <buffer> <silent> <NL> :call RunTmuxMatlabCell(1)<CR>
+    noremap <buffer> <silent> <Leader><CR> :call RunTmuxMatlabCell(1)<CR>
+    noremap <buffer> <silent> <F10> :call RunTmuxMatlabCell(0)<CR>
 endif
