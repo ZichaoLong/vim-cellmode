@@ -2,9 +2,9 @@
 " are delimited by #%%
 "
 " You can define the following globals or buffer config variables
-  let g:cellmode_tmux_sessionname='IPython'
-  let g:cellmode_tmux_windowname='IPython'
-  let g:cellmode_tmux_panenumber='0'
+" let g:cellmode_tmux_sessionname='IPython'
+" let g:cellmode_tmux_windowname='IPython'
+" let g:cellmode_tmux_panenumber='0'
 "  let g:cellmode_screen_sessionname='ipython'
 "  let g:cellmode_screen_window='0'
 "  let g:cellmode_use_tmux=1
