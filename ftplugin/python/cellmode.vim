@@ -61,7 +61,7 @@ function! GetNextTempFile()
     au BufDelete <buffer> call CleanupTempFiles()
     let b:cellmode_fnames = []
     for i in range(1, b:cellmode_n_files)
-      call add(b:cellmode_fnames, tempname() . ".ipy")
+      call add(b:cellmode_fnames, tempname() . ".py")
     endfor
     let b:cellmode_fnames_index = 0
   end
@@ -145,7 +145,7 @@ function! CopyToTmux(code)
   " in a small console. We use %load to work around that
   "call CallSystem('tmux load-buffer ' . l:cellmode_fname)
   "call CallSystem('tmux paste-buffer -t ' . target)
-  call CallSystem("tmux set-buffer \"%load -y " . l:cellmode_fname . "\n\"")
+  call CallSystem("tmux set-buffer \"%run " . l:cellmode_fname . "\n\"")
   call CallSystem('tmux paste-buffer -t "' . target . '"')
   " In ipython5, the cursor starts at the top of the lines, so we have to move
   " to the bottom
