@@ -151,8 +151,8 @@ function! CopyToTmux(code)
   " to the bottom
   let downlist = repeat('Down ', len(l:lines) + 1)
   call CallSystem('tmux send-keys -t "' . target . '" ' . downlist)
-  " Simulate double enter to run loaded code
-  call CallSystem('tmux send-keys -t "' . target . '" Enter Enter')
+  " Simulate triple enter to run loaded code
+  call CallSystem('tmux send-keys -t "' . target . '" Enter Enter Enter')
 endfunction
 
 function! CopyToScreen(code)
